@@ -12,7 +12,7 @@ https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecy.2754
 I provide the Tobler et al. data augmentation version in files with "DA Wishart" and the Dorazio parameter expanded data augmentation
 version in files with "PXDA HuangWand"
 since Dorazio used the Huang-Wand hierarchical prior for the precision matrix. Nimble is able to provide the conjugate
-update for the precision matrix and I use a custom update for the conjugate update of the scale parameters.
+update for the precision matrix and I use a custom update for the conjugate update of the auxiliary parameters.
 
 Currently set up with intercepts only. Covariates can be added by following Dorazio.
 
