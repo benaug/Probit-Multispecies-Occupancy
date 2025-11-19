@@ -22,7 +22,7 @@ Dorazio features currently not incorporated:
 3) Full conditional updates for p (detection) (I'm using RW)
 
 I think this parameter expansion and Huang-Wand prior get us most of the way to the efficiency of Dorazio's approach.
-Need a truncated multivariate Normal random vector generator for w full conditionals. An advantage of nimble is that it is
+Need a truncated multivariate normal random vector generator that nimble can compile for w full conditionals. An advantage of nimble is that it is
 fully compiled to c++.
 
 Finally, I haven't formally tested this code, but it appears to be working correctly. The regular DA version can take a
