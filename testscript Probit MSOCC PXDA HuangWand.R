@@ -104,7 +104,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 # Run the model.
 start.time2 <- Sys.time()
 #can ignore warnings about NAs in A
-Cmcmc$run(15000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
+Cmcmc$run(5000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
 end.time <- Sys.time()
 end.time - start.time  # total time for compilation, replacing samplers, and fitting
 end.time - start.time2 # post-compilation run time
