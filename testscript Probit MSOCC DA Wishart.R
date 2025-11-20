@@ -110,7 +110,7 @@ idx.mu <- grep("mu",colnames(mvSamples2))
 burnin2 <- 1000
 
 #can look at R and mu posteriors
-plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.R]))
+plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.R[-seq(1,S*S,S+1)]])) #removing diagonals that are all 1
 #mu's that are constrained >0 by observed occupancy states
 plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.mu[which(y>0)]]))
 #unconstrainted mu's

@@ -9,7 +9,7 @@ NimModel <- nimbleCode({
   #Huang–Wand prior
   nu <- 2  # for uniform marginal on r_{j,k} Dont change this!
   for(i in 1:S){
-    st[i] <- 100  # large for non-informative half-t on sqrt(sigma_{j,j})
+    st[i] <- 10  # large for uninformative half-t on sqrt(sigma_{j,j})
     a[i] ~ dgamma(shape=0.5,rate =1/st[i]^2)  #half-t on sqrt(σ_{j,j})
     A[i,i] <- a[i] # A = diag(a1, ..., aS)
   }
@@ -45,13 +45,13 @@ uppertri_mult_diag <- nimbleFunction(
     return(out)
   })
 
-#conjugate sampler for a=diag(A)
+#conjugate sampler for a=diag(A). Stolen from Dorazio et al.
 aConjugateSampler <- nimbleFunction(
   contains = sampler_BASE,
   setup = function(model, mvSaved, target, control) {
     # Defined stuff
     S <- control$S
-    calcNodes <- model$getDependencies(target)
+    calcNodes <- control$calcNodes
   },
   run = function(){
     for(i in 1:S){

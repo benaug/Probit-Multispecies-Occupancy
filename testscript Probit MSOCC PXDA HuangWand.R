@@ -83,8 +83,10 @@ conf <- configureMCMC(Rmodel,monitors=parameters,thin=2,
 
 #remove a samplers, replace with custom conjugate samplers that nimble didn't recognize
 conf$removeSampler("a")
-conf$addSampler(target = paste0("a[1:", S, "]"), type = "aConjugateSampler",
-                control = list(S=S))
+calcNodes <- Rmodel$getDependencies(paste0("a[1:",S,"]"))
+calcNodes <- c(calcNodes,Rmodel$expandNodeNames("Sigma"),Rmodel$expandNodeNames("R"))
+conf$addSampler(target = paste0("a[1:",S,"]"), type = "aConjugateSampler",
+                control = list(S=S,calcNodes=calcNodes))
 
 #could replace default RW samplers for B with slice samplers, not sure which is more efficient
 # conf$removeSamplers("B")
@@ -102,7 +104,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 # Run the model.
 start.time2 <- Sys.time()
 #can ignore warnings about NAs in A
-Cmcmc$run(5000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
+Cmcmc$run(15000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
 end.time <- Sys.time()
 end.time - start.time  # total time for compilation, replacing samplers, and fitting
 end.time - start.time2 # post-compilation run time
@@ -128,7 +130,7 @@ idx.w <- grep("w",colnames(mvSamples2))
 burnin2 <- 1000
 
 #can look at R and w posteriors
-plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.R]))
+plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.R[-seq(1,S*S,S+1)]])) #removing diagonals that are all 1
 #w's that are constrained >0 by observed occupancy states
 plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.w[which(y>0)]]))
 #unconstrainted w's
@@ -149,3 +151,8 @@ for(s1 in 1:S){
   }
 }
 abline(0,1)
+
+#coverage of R upper triangular matrix
+covers <- HPDs2[,,1]<R&HPDs2[,,2]>R
+mean(covers[upper.tri(covers)]) 
+
