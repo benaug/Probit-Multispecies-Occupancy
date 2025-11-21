@@ -1,13 +1,30 @@
 #This version uses the Huang-Wand hierarchical prior for the precision matrix 
+#V2 uses: 
+#1) full conditional w[,j] updates conditioned on z[,j] from Dorazio. Custom updates use R package tmvtnorm
+#and it is very slow to call it J times per iteration. I will see if I can get all J proposals at once in R
+#so we only need to interface with R once per iteration. I'm not sure how much of the run time is generating
+#the RVs vs. interfacing with R.
+
+#2) to allow z states to change, this version uses a simple RW update for w[i,j] in cases where y[i,j]=0.
+#This was just the easiest thing to do. I will change it to use a proposal that always swaps the z state,
+#which will improve efficiency further.
+
+#W proposals can fail and if so, it will print an error each time. I
+#saw it fail sometimes using Dorazio's z updates that lead to poor starting
+#values for w simulation when a z has been updated and the current w is inconsistent,
+#but I haven't seen it so far when not using that z update where current values of w
+#are always consistent with current z
 
 library(mvtnorm)
+library(tmvtnorm)
+library(truncnorm)
 library(nimble)
 library(coda)
-source("NimbleModel Probit MSOCC PXDA HuangWand.R")
+source("NimbleModel Probit MSOCC PXDA HuangWand V2.R")
 
 #Data dimensions (definitions below may be specific to eDNA interpretation)
 S <- 10 #species
-J <- 500 #sites
+J <- 100 #sites. set lower than the other test scripts due to longer run times
 K <- rep(5,J) #detection occasions per site
 
 set.seed(1123)
@@ -44,14 +61,7 @@ for(i in 1:S){
 
 #initialize
 z.init <- 1*(y>0)
-w.init <- matrix(0, S, J)
-w.init[z.init==0] <- -abs(rnorm(sum(z.init==0),0,1))
-w.init[z.init==1] <- abs(rnorm(sum(z.init==1),0,1))
-
 #Following Dorazio using glm to set B inits. modify if you add covariates
-#if you don't provide decent B inits, they are drawn from prior, which is currently
-#very diffuse and can take a long time to converge
-
 B.init <- rep(NA,S)
 z.obs <- 1*(y>0)
 for(s in 1:S){
@@ -60,7 +70,32 @@ for(s in 1:S){
   B.init[s] = fit$coefficients
 }
 
-Niminits <- list(B=B.init,z=z.init,w=w.init)
+R.init <- diag(rep(1,S))
+D.init = diag(S)
+
+w.init <- matrix(0,S,J)
+for(i in 1:S){
+  for(j in 1:J) {
+    if(z.init[i,j]==1){
+      w.init[i,j] <- rtruncnorm(1,mean=B.init[i],sd=D.init[i,i],a=0)
+    }else{
+      w.init[i,j] <- rtruncnorm(1,mean=B.init[i],sd=D.init[i,i],b=0)
+    }
+  }                   
+}
+#more Dorazio initializatoion code
+Sigma.init <- D.init %*% R.init %*% D.init
+Omega.init <- chol2inv(chol(Sigma.init))
+Eps <- t(w.init - B.init)
+crossProdMat <- crossprod(Eps, Eps)
+nu.Sigma <- 2
+scale.Sigma <- 10
+a.init <- rgamma(S, shape=(nu.Sigma+S)/2, rate=(1/scale.Sigma^2) + nu.Sigma*diag(Omega.init))
+Omega.init <- rWishart(1, df=nu.Sigma+S-1 + J, Sigma=chol2inv(chol(2*nu.Sigma*diag(a.init) + crossProdMat)))[,, 1]
+Sigma.init <- chol2inv(chol(Omega.init))
+
+
+Niminits <- list(B=B.init,z=z.init,w=w.init,a=a.init,Omega=Omega.init)
 constants <- list(S=S,J=J,K=K)
 
 z.data <- z.init
@@ -81,6 +116,25 @@ Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FAL
 conf <- configureMCMC(Rmodel,monitors=parameters,thin=2,
                       monitors2=parameters2,thin2=2)
 
+conf$removeSampler("w") #remove block RW sampler for w that mixes poorly
+#independent w samplers that can switch z states for y[i,j]=0
+for(i in 1:S){
+  for(j in 1:J){
+    if(y[i,j]==0){
+      conf$addSampler(target = paste0("w[", i,",",j,"]"), type = "RW",
+                      control = list(S=S,i=i,j=j,K=K[j]))
+    }
+  }
+}
+
+#full conditional w updates conditioned on z states using rtmvnorm in R that uses gibbs sampling to generate them.
+burn.in.samples <- 500 #can change the number of burn in samples for rtmvnorm() proposals. no idea what is necessary,
+#but 500 may be overkill. seem to converge right away.
+for(j in 1:J){
+  conf$addSampler(target = paste0("w[1:", S,",",j,"]"), type = "WConjugateSampler",
+                control = list(S=S,j=j,K=K[j],burn.in.samples=burn.in.samples))
+}
+
 #remove a samplers, replace with custom conjugate samplers that nimble didn't recognize
 conf$removeSampler("a")
 calcNodes <- Rmodel$getDependencies(paste0("a[1:",S,"]"))
@@ -88,30 +142,31 @@ calcNodes <- c(calcNodes,Rmodel$expandNodeNames("Sigma"),Rmodel$expandNodeNames(
 conf$addSampler(target = paste0("a[1:",S,"]"), type = "aConjugateSampler",
                 control = list(S=S,calcNodes=calcNodes))
 
-#could replace default RW samplers for B with slice samplers, not sure which is more efficient
-# conf$removeSamplers("B")
+#could add block samplers for B[i] and p[i] that often have correlated posteriors
+#will get warnings about different scales. RW_block should still help, but could try
+#AF_slice. It will be slower, but mix better.
 # for(i in 1:S){
-#   conf$addSampler(target = paste("B[",i,"]"),
-#                   type = 'slice',control = list(adaptive=TRUE),silent = TRUE)
+#   conf$addSampler(target = c(paste0("B[",i,"]"),paste0("p[",i,"]")), type = "RW_block",
+#                   control = list(S=S,i=i,j=j,K=K[j]))
 # }
 
 #Build and compile
 Rmcmc <- buildMCMC(conf)
-# runMCMC(Rmcmc,niter=10) #this will run in R, used for better debugging
+# runMCMC(Rmcmc,niter=1) #this will run in R, used for better debugging
 Cmodel <- compileNimble(Rmodel)
 Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 
 # Run the model.
 start.time2 <- Sys.time()
 #can ignore warnings about NAs in A
-Cmcmc$run(5000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
+Cmcmc$run(2500,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
 end.time <- Sys.time()
 end.time - start.time  # total time for compilation, replacing samplers, and fitting
 end.time - start.time2 # post-compilation run time
 
 mvSamples <- as.matrix(Cmcmc$mvSamples)
 
-burnin <- 1000
+burnin <- 250
 
 #plot derived betas, detection parameters
 plot(coda::mcmc(mvSamples[-c(1:burnin),])) #might take a while for all parameters to converge
@@ -127,7 +182,7 @@ plot(coda::mcmc(pnorm(mvSamples[-c(1:burnin),idx.bd])))
 mvSamples2 <- as.matrix(Cmcmc$mvSamples2)
 idx.R <- grep("R",colnames(mvSamples2))
 idx.w <- grep("w",colnames(mvSamples2))
-burnin2 <- 1000
+burnin2 <- 250
 
 #can look at R and w posteriors
 plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.R[-seq(1,S*S,S+1)]])) #removing diagonals that are all 1
