@@ -65,13 +65,12 @@ aConjugateSampler <- nimbleFunction(
   methods = list( reset = function () {} )
 )
 
-#nimble function to call rtmvnorm, used in WConjugateSampler
+#nimble function to call rtmvnorm, used in WConjugateSampler1 below
 rtmvnormNim <- nimbleRcall(function(n=integer(0),mean=double(1),sigma=double(2),lower=double(1),upper=double(1),algorithm=character(0),
                                     start.value=double(1),burn.in.samples=double(0)){},
                            Rfun = 'rtmvnorm',
                            returnType = double(1),
                            where = .GlobalEnv)
-
 
 #Conjugate sampler for w[,j]|z[,j]
 WConjugateSampler <- nimbleFunction(
@@ -111,3 +110,72 @@ WConjugateSampler <- nimbleFunction(
   },
   methods = list( reset = function () {} )
 )
+
+#nimble function to call rtmvnormJ below, used in WConjugateSampler2 below
+#apologies for poor file names, something was going wrong with 2 functions that start with "rtmvnormNim"
+#probably something to do with nimble recognizing functions starting with "r" as RNGs.
+allJrtmvnormNim <- nimbleRcall(function(n=integer(0),mean=double(1),sigma=double(2),lower=double(2),upper=double(2),algorithm=character(0),
+                                    start.value=double(2),burn.in.samples=double(0)){},
+                           Rfun = 'allJrtmvnorm',
+                           returnType = double(2),
+                           where = .GlobalEnv)
+# 
+#R function to call rtmvnorm J times and return output
+allJrtmvnorm <- function(n=integer(0),mean=double(2),sigma=double(2),lower=double(2),upper=double(2),algorithm=character(0),
+                      start.value=double(2),burn.in.samples=double(0)){
+  S <- nrow(start.value)
+  J <- ncol(start.value)
+  W.prop <- matrix(0,S,J)
+  for(j in 1:J){
+    W.prop[,j] <- rtmvnorm(1, mean=mean, sigma=sigma, lower=lower[,j], upper=upper[,j],
+                           algorithm='gibbs',start.value=start.value[,j],
+                           burn.in.samples=burn.in.samples)
+  }
+  return(W.prop)
+}
+
+#Conjugate sampler for w[,j]|z[,j] - all J together
+WConjugateSampler2 <- nimbleFunction(
+  contains = sampler_BASE,
+  setup = function(model, mvSaved, target, control){
+    # Defined stuff
+    S <- control$S
+    J <- control$J
+    K <- control$K
+    burn.in.samples <- control$burn.in.samples
+    #since we never change z states in this sampler, we don't need downstream nodes for detection
+    calcNodes <- model$expandNodeNames(paste0("w[1:", S,",1:",J,"]"))
+  },
+  run = function(){
+    #update w[,j]|z[,j] from full conditional for all J in one function and 1 R call
+    #get w upper and lower for all J
+    wLower <- matrix(-Inf,S,J)
+    wUpper <- matrix(Inf,S,J)
+    for(j in 1:J){
+      for(i in 1:S){
+        if(model$z[i,j]==1){
+          wLower[i,j] <- 0
+        }else{
+          wUpper[i,j] <- 0
+        }
+      }
+    }
+    #get w.prop from R for all j
+    w.prop <- allJrtmvnormNim(n=1, mean=model$B, sigma=model$Sigma, lower=wLower, upper=wUpper,
+                          algorithm='gibbs',start.value=model$w,#start from current values
+                          burn.in.samples=burn.in.samples)
+    for(j in 1:J){
+      if(all(!is.nan(w.prop[,j]))){ # check if sampling of truncated multivariate normal distribution failed
+        model$w[,j] <<- w.prop[,j]
+      }else{
+        #keep current w, pretend this never happened
+        print("w prop failed")
+      }
+    }
+    model$calculate(calcNodes)
+    copy(from = model, to = mvSaved, row = 1, nodes = calcNodes, logProb = TRUE)
+  },
+  methods = list( reset = function () {} )
+)
+
+

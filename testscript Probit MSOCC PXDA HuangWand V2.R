@@ -1,9 +1,8 @@
 #This version uses the Huang-Wand hierarchical prior for the precision matrix 
 #V2 uses: 
 #1) full conditional w[,j] updates conditioned on z[,j] from Dorazio. Custom updates use R package tmvtnorm
-#and it is very slow to call it J times per iteration. I will see if I can get all J proposals at once in R
-#so we only need to interface with R once per iteration. I'm not sure how much of the run time is generating
-#the RVs vs. interfacing with R.
+#and it is very slow. I provide code to generate them one j at a time or all J at once and the latter is
+#very marginally faster (at least with 100 sites) and should use less RAM
 
 #2) to allow z states to change, this version uses a simple RW update for w[i,j] in cases where y[i,j]=0.
 #This was just the easiest thing to do. I will change it to use a proposal that always swaps the z state,
@@ -130,10 +129,16 @@ for(i in 1:S){
 #full conditional w updates conditioned on z states using rtmvnorm in R that uses gibbs sampling to generate them.
 burn.in.samples <- 500 #can change the number of burn in samples for rtmvnorm() proposals. no idea what is necessary,
 #but 500 may be overkill. seem to converge right away.
-for(j in 1:J){
-  conf$addSampler(target = paste0("w[1:", S,",",j,"]"), type = "WConjugateSampler",
-                control = list(S=S,j=j,K=K[j],burn.in.samples=burn.in.samples))
-}
+# #this version does 1 j at a time with J R calls
+# for(j in 1:J){
+#   conf$addSampler(target = paste0("w[1:", S,",",j,"]"), type = "WConjugateSampler",
+#                   control = list(S=S,j=j,K=K[j],burn.in.samples=burn.in.samples))
+# }
+#this version does all J at in one update with 1 R call
+#very marginally faster, should use slightly less RAM
+conf$addSampler(target = paste0("w[1:", S,",1:",J,"]"), type = "WConjugateSampler2",
+                  control = list(S=S,J=J,K=K,burn.in.samples=burn.in.samples))
+
 
 #remove a samplers, replace with custom conjugate samplers that nimble didn't recognize
 conf$removeSampler("a")
@@ -166,7 +171,7 @@ end.time - start.time2 # post-compilation run time
 
 mvSamples <- as.matrix(Cmcmc$mvSamples)
 
-burnin <- 250
+burnin <- 25
 
 #plot derived betas, detection parameters
 plot(coda::mcmc(mvSamples[-c(1:burnin),])) #might take a while for all parameters to converge
