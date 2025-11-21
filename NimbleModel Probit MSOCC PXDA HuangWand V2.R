@@ -65,7 +65,7 @@ aConjugateSampler <- nimbleFunction(
   methods = list( reset = function () {} )
 )
 
-#nimble function to call rtmvnorm, used in ZWConjugateSampler
+#nimble function to call rtmvnorm, used in WConjugateSampler
 rtmvnormNim <- nimbleRcall(function(n=integer(0),mean=double(1),sigma=double(2),lower=double(1),upper=double(1),algorithm=character(0),
                                     start.value=double(1),burn.in.samples=double(0)){},
                            Rfun = 'rtmvnorm',
