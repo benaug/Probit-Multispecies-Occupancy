@@ -86,7 +86,7 @@ WConjugateSampler <- nimbleFunction(
     calcNodes <- model$expandNodeNames(paste0("w[1:", S,",",j,"]"))
   },
   run = function(){
-    #2) update w[,j]|z[,j] from full conditional
+    #update w[,j]|z[,j] from full conditional
     wStart <- model$w[,j]
     wLower <- rep(-Inf,S)
     wUpper <- rep(Inf,S)
