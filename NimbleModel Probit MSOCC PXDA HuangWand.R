@@ -15,11 +15,11 @@ NimModel <- nimbleCode({
   }
   Rscale[1:S,1:S] <- inverse(2*nu * A[1:S,1:S])
   Omega[1:S,1:S] ~ dwish(R=Rscale[1:S,1:S],df=nu+S-1) #precision matrix
-  Sigma[1:S,1:S] <- inverse(Omega[1:S,1:S]) #covariance matrix
   for(j in 1:J){
     w[1:S,j] ~ dmnorm(B[1:S],prec=Omega[1:S,1:S])
   }
   #Derive Correlation matrix
+  Sigma[1:S,1:S] <- inverse(Omega[1:S,1:S]) #covariance matrix
   for(i in 1:S){
     for(k in 1:S){
       R[i,k] <- Sigma[i,k]/(sqrt(Sigma[i,i])*sqrt(Sigma[k,k]))
@@ -54,8 +54,8 @@ aConjugateSampler <- nimbleFunction(
     calcNodes <- control$calcNodes
   },
   run = function(){
+    shape <- (model$nu[1]+S)/2
     for(i in 1:S){
-      shape <- (model$nu[1]+S)/2
       rate <- 1/model$st[i]^2+model$nu[1]*model$Omega[i,i]
       model$a[i] <<- rgamma(1,shape=shape,rate=rate) #full conditionals
     }

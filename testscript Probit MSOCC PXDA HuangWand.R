@@ -155,4 +155,3 @@ abline(0,1)
 #coverage of R upper triangular matrix
 covers <- HPDs2[,,1]<R&HPDs2[,,2]>R
 mean(covers[upper.tri(covers)]) 
-
