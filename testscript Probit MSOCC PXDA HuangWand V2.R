@@ -147,7 +147,7 @@ conf$addSampler(target = paste0("a[1:",S,"]"), type = "aConjugateSampler",
 #AF_slice. It will be slower, but mix better.
 # for(i in 1:S){
 #   conf$addSampler(target = c(paste0("B[",i,"]"),paste0("p[",i,"]")), type = "RW_block",
-#                   control = list(S=S,i=i,j=j,K=K[j]))
+#                   control = list(adaptive=TRUE))
 # }
 
 #Build and compile
