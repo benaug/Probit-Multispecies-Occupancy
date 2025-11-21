@@ -171,7 +171,7 @@ end.time - start.time2 # post-compilation run time
 
 mvSamples <- as.matrix(Cmcmc$mvSamples)
 
-burnin <- 25
+burnin <- 250
 
 #plot derived betas, detection parameters
 plot(coda::mcmc(mvSamples[-c(1:burnin),])) #might take a while for all parameters to converge
