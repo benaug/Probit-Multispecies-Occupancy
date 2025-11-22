@@ -147,13 +147,11 @@ calcNodes <- c(calcNodes,Rmodel$expandNodeNames("Sigma"),Rmodel$expandNodeNames(
 conf$addSampler(target = paste0("a[1:",S,"]"), type = "aConjugateSampler",
                 control = list(S=S,calcNodes=calcNodes))
 
-#could add block samplers for B[i] and p[i] that often have correlated posteriors
-#will get warnings about different scales. RW_block should still help, but could try
-#AF_slice. It will be slower, but mix better.
-# for(i in 1:S){
-#   conf$addSampler(target = c(paste0("B[",i,"]"),paste0("p[",i,"]")), type = "RW_block",
-#                   control = list(adaptive=TRUE))
-# }
+#remove B samplers, replace with custom conjugate samplers that nimble didn't recognize
+#mixes similarly to RW updates, but are faster to compute
+conf$removeSampler("B")
+conf$addSampler(target = paste0("B[1:",S,"]"), type = "BConjugateSampler",
+                control = list(S=S,J=J))
 
 #Build and compile
 Rmcmc <- buildMCMC(conf)

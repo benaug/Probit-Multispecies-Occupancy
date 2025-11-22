@@ -88,12 +88,11 @@ calcNodes <- c(calcNodes,Rmodel$expandNodeNames("Sigma"),Rmodel$expandNodeNames(
 conf$addSampler(target = paste0("a[1:",S,"]"), type = "aConjugateSampler",
                 control = list(S=S,calcNodes=calcNodes))
 
-#could replace default RW samplers for B with slice samplers, not sure which is more efficient
-# conf$removeSamplers("B")
-# for(i in 1:S){
-#   conf$addSampler(target = paste("B[",i,"]"),
-#                   type = 'slice',control = list(adaptive=TRUE),silent = TRUE)
-# }
+#remove B samplers, replace with custom conjugate samplers that nimble didn't recognize
+#mixes similarly to RW updates, but are faster to compute
+conf$removeSampler("B")
+conf$addSampler(target = paste0("B[1:",S,"]"), type = "BConjugateSampler",
+                control = list(S=S,J=J))
 
 #Build and compile
 Rmcmc <- buildMCMC(conf)

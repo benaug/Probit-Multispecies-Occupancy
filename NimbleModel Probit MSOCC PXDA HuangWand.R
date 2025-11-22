@@ -2,7 +2,12 @@
 NimModel <- nimbleCode({
   #priors
   for(i in 1:S){
-    B[i] ~ dnorm(0,sd=10) # expanded intercept
+    #for RW updates
+    B[i] ~ dnorm(0,sd=10) # expanded intercept. too diffuse, mean psi can get stuck at 0 or 1
+    #can use this with intercept only model to keep psi between approx 0.001 an 0.999 so it doesn't get stuck at 0 or 1
+    # B[i] ~ dunif(-3.1,3.1)
+    #for conjugate updates (currenly only works for intercept only)
+    # B[i] ~ dflat() #assumption for B conjugate sampler
     beta0.derived[i] <- B[i]/sqrt(Sigma[i,i]) #identifiable intercept
     p[i] ~ dbeta(1, 1) #detection probability
   }
@@ -59,6 +64,31 @@ aConjugateSampler <- nimbleFunction(
       rate <- 1/model$st[i]^2+model$nu[1]*model$Omega[i,i]
       model$a[i] <<- rgamma(1,shape=shape,rate=rate) #full conditionals
     }
+    model$calculate(calcNodes)
+    copy(from = model, to = mvSaved, row = 1, nodes = calcNodes, logProb = TRUE)
+  },
+  methods = list( reset = function () {} )
+)
+
+#conjugate sampler B, intercept only
+BConjugateSampler <- nimbleFunction(
+  contains = sampler_BASE,
+  setup = function(model, mvSaved, target, control){
+    # Defined stuff
+    S <- control$S
+    J <- control$J
+    calcNodes <- model$getDependencies(target)
+  },
+  run = function(){
+    B.mean <- rep(NA,S)
+    for(i in 1:S){
+      B.mean[i] <- mean(model$w[i,])
+    }
+    #can't figure out how to get MVN RNG to work, using noncentered parameterization instead
+    chol.sigma <- chol(model$Sigma/J) 
+    B.prop <- B.mean + chol.sigma %*% rnorm(S,0,1)
+    z <- rnorm(S,0,1)
+    model$B <<- (B.mean + chol.sigma %*% z)[,1]
     model$calculate(calcNodes)
     copy(from = model, to = mvSaved, row = 1, nodes = calcNodes, logProb = TRUE)
   },
