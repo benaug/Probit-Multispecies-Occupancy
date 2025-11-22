@@ -22,9 +22,9 @@ and independent RW updates for z's that are latent to allow z states to change.
 Models are currently set up with occupancy and detection intercepts only. I will add them later, but be careful if you try to do this yourself.
 
 I have PXDA set up with full conditional updates for B, but the custom conjugate update is only coded for the intercept only model.
-For 1 data set, the mixing was similar, but the full conditionals are faster to compute. I noticed a case of one of the betas drifting
-off towards positive infinity using an RW update with a very diffuse prior. This shouldn't happen with the conjugate update, or you can
-set bounds on the scale of w that keep mean psi between, say, 0.001 and 0.999.
+The mixing is better with the congujate update and they are faster to compute than RW. I noticed a case of one of the betas drifting
+off towards positive infinity using an RW update with a diffuse prior. This shouldn't happen with the conjugate update, or you can
+set bounds on the scale of the B prior that keep mean psi between, say, 0.001 and 0.999 (in code currently commented out).
 
 Finally, I haven't formally tested this code, but it appears to be working correctly. 
 
