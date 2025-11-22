@@ -84,11 +84,10 @@ BConjugateSampler <- nimbleFunction(
     for(i in 1:S){
       B.mean[i] <- mean(model$w[i,])
     }
-    #can't figure out how to get MVN RNG to work, using noncentered parameterization instead
-    chol.sigma <- chol(model$Sigma/J) 
-    B.prop <- B.mean + chol.sigma %*% rnorm(S,0,1)
+    #can't figure out how to get MVN RNG to work in custom sampler, using noncentered parameterization instead
+    chol.sigma <- chol(model$Sigma/J)
     z <- rnorm(S,0,1)
-    model$B <<- (B.mean + chol.sigma %*% z)[,1]
+    model$B <<- (B.mean + t(chol.sigma) %*% z)[,1]
     model$calculate(calcNodes)
     copy(from = model, to = mvSaved, row = 1, nodes = calcNodes, logProb = TRUE)
   },
