@@ -6,8 +6,8 @@ library(coda)
 source("NimbleModel Probit MSOCC PXDA HuangWand.R")
 
 #Data dimensions (definitions below may be specific to eDNA interpretation)
-S <- 10 #species
-J <- 500 #sites
+S <- 5 #species
+J <- 250 #sites
 K <- rep(5,J) #detection occasions per site
 
 set.seed(1123)
@@ -78,13 +78,15 @@ parameters2 <- c('R',"w")
 start.time <- Sys.time()
 Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FALSE,
                       inits=Niminits)
-conf <- configureMCMC(Rmodel,monitors=parameters,thin=2,
-                      monitors2=parameters2,thin2=2)
+conf <- configureMCMC(Rmodel,monitors=parameters,thin=5,
+                      monitors2=parameters2,thin2=5)
 
 #remove a samplers, replace with custom conjugate samplers that nimble didn't recognize
 conf$removeSampler("a")
 calcNodes <- Rmodel$getDependencies(paste0("a[1:",S,"]"))
-calcNodes <- c(calcNodes,Rmodel$expandNodeNames("Sigma"),Rmodel$expandNodeNames("R"))
+calcNodes <- c(calcNodes,Rmodel$expandNodeNames("Sigma"),
+               Rmodel$expandNodeNames("R"),
+               Rmodel$expandNodeNames("w"))
 conf$addSampler(target = paste0("a[1:",S,"]"), type = "aConjugateSampler",
                 control = list(S=S,calcNodes=calcNodes))
 
@@ -103,7 +105,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 # Run the model.
 start.time2 <- Sys.time()
 #can ignore warnings about NAs in A
-Cmcmc$run(5000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
+Cmcmc$run(25000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
 end.time <- Sys.time()
 end.time - start.time  # total time for compilation, replacing samplers, and fitting
 end.time - start.time2 # post-compilation run time

@@ -22,8 +22,8 @@ library(coda)
 source("NimbleModel Probit MSOCC PXDA HuangWand V2.R")
 
 #Data dimensions (definitions below may be specific to eDNA interpretation)
-S <- 10 #species
-J <- 100 #sites. set lower than the other test scripts due to longer run times
+S <- 5 #species
+J <- 250 #sites. set lower than the other test scripts due to longer run times
 K <- rep(5,J) #detection occasions per site
 
 set.seed(1123)
@@ -143,18 +143,17 @@ conf$addSampler(target = paste0("w[1:", S,",1:",J,"]"), type = "WConjugateSample
 #remove a samplers, replace with custom conjugate samplers that nimble didn't recognize
 conf$removeSampler("a")
 calcNodes <- Rmodel$getDependencies(paste0("a[1:",S,"]"))
-calcNodes <- c(calcNodes,Rmodel$expandNodeNames("Sigma"),Rmodel$expandNodeNames("R"))
+calcNodes <- c(calcNodes,Rmodel$expandNodeNames("Sigma"),
+               Rmodel$expandNodeNames("R"),
+               Rmodel$expandNodeNames("w"))
 conf$addSampler(target = paste0("a[1:",S,"]"), type = "aConjugateSampler",
                 control = list(S=S,calcNodes=calcNodes))
 
 #remove B samplers, replace with custom conjugate samplers that nimble didn't recognize
 #mixes similarly to RW updates, but are faster to compute
-
-#actually, these aren't currently correct, use MH until I fix it.
-
-# conf$removeSampler("B")
-# conf$addSampler(target = paste0("B[1:",S,"]"), type = "BConjugateSampler",
-#                 control = list(S=S,J=J))
+conf$removeSampler("B")
+conf$addSampler(target = paste0("B[1:",S,"]"), type = "BConjugateSampler",
+                control = list(S=S,J=J))
 
 #Build and compile
 Rmcmc <- buildMCMC(conf)
@@ -165,7 +164,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 # Run the model.
 start.time2 <- Sys.time()
 #can ignore warnings about NAs in A
-Cmcmc$run(2500,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
+Cmcmc$run(2000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
 end.time <- Sys.time()
 end.time - start.time  # total time for compilation, replacing samplers, and fitting
 end.time - start.time2 # post-compilation run time

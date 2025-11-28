@@ -101,7 +101,8 @@ rtmvnormNim <- nimbleRcall(function(n=integer(0),mean=double(1),sigma=double(2),
                            returnType = double(1),
                            where = .GlobalEnv)
 
-#Conjugate sampler for w[,j]|z[,j]
+#Conjugate samplers for w[,j]|z[,j]. Two versions, one that updates one j at a time and another that updates them
+#all in one update so we interface with R less
 WConjugateSampler <- nimbleFunction(
   contains = sampler_BASE,
   setup = function(model, mvSaved, target, control){
@@ -148,7 +149,7 @@ allJrtmvnormNim <- nimbleRcall(function(n=integer(0),mean=double(1),sigma=double
                            Rfun = 'allJrtmvnorm',
                            returnType = double(2),
                            where = .GlobalEnv)
-# 
+
 #R function to call rtmvnorm J times and return output
 allJrtmvnorm <- function(n=integer(0),mean=double(2),sigma=double(2),lower=double(2),upper=double(2),algorithm=character(0),
                       start.value=double(2),burn.in.samples=double(0)){
