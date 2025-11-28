@@ -149,9 +149,12 @@ conf$addSampler(target = paste0("a[1:",S,"]"), type = "aConjugateSampler",
 
 #remove B samplers, replace with custom conjugate samplers that nimble didn't recognize
 #mixes similarly to RW updates, but are faster to compute
-conf$removeSampler("B")
-conf$addSampler(target = paste0("B[1:",S,"]"), type = "BConjugateSampler",
-                control = list(S=S,J=J))
+
+#actually, these aren't currently correct, use MH until I fix it.
+
+# conf$removeSampler("B")
+# conf$addSampler(target = paste0("B[1:",S,"]"), type = "BConjugateSampler",
+#                 control = list(S=S,J=J))
 
 #Build and compile
 Rmcmc <- buildMCMC(conf)
@@ -193,6 +196,8 @@ plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.R[-seq(1,S*S,S+1)]])) #removing dia
 plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.w[which(y>0)]]))
 #unconstrainted w's
 plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.w[which(y==0)]]))
+#z states (still says w on the plots, ignore)
+plot(coda::mcmc(1*(mvSamples2[-c(1:burnin2),idx.w[which(y==0)]]>0)))
 
 #get point and interval estimates for correlations, compare to truth
 ests2 <- matrix(colMeans(mvSamples2[-c(1:burnin2),idx.R]),S,S)
