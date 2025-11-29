@@ -21,7 +21,7 @@ library(nimble)
 library(coda)
 source("NimbleModel Probit MSOCC PXDA HuangWand V2.R")
 
-#Data dimensions (definitions below may be specific to eDNA interpretation)
+#Data dimensions
 S <- 5 #species
 J <- 250 #sites. set lower than the other test scripts due to longer run times
 K <- rep(5,J) #detection occasions per site
@@ -121,7 +121,7 @@ for(i in 1:S){
   for(j in 1:J){
     if(y[i,j]==0){
       conf$addSampler(target = paste0("w[", i,",",j,"]"), type = "RW",
-                      control = list(S=S,i=i,j=j,K=K[j]))
+                      control = list(S=S,i=i,j=j,K=K[j],adaptive=TRUE,scale=0.2)) #default scale is 1
     }
   }
 }

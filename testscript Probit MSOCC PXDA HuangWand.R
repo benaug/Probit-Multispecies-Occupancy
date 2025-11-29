@@ -5,7 +5,7 @@ library(nimble)
 library(coda)
 source("NimbleModel Probit MSOCC PXDA HuangWand.R")
 
-#Data dimensions (definitions below may be specific to eDNA interpretation)
+#Data dimensions
 S <- 5 #species
 J <- 250 #sites
 K <- rep(5,J) #detection occasions per site
@@ -81,6 +81,15 @@ Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FAL
 conf <- configureMCMC(Rmodel,monitors=parameters,thin=5,
                       monitors2=parameters2,thin2=5)
 
+#can remove block sampler for w and add it back with multiple tries
+conf$removeSampler("w") #remove block RW sampler for w that mixes poorly
+#independent w samplers that can switch z states for y[i,j]=0
+tries <- 10 #how many block updates per j per iteration
+for(j in 1:J){
+    conf$addSampler(target = paste0("w[1:", S,",",j,"]"), type = "RW_block",
+                    control = list(S=S,i=i,j=j,K=K[j],tries=tries))
+}
+
 #remove a samplers, replace with custom conjugate samplers that nimble didn't recognize
 conf$removeSampler("a")
 calcNodes <- Rmodel$getDependencies(paste0("a[1:",S,"]"))
@@ -105,7 +114,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 # Run the model.
 start.time2 <- Sys.time()
 #can ignore warnings about NAs in A
-Cmcmc$run(25000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
+Cmcmc$run(10000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
 end.time <- Sys.time()
 end.time - start.time  # total time for compilation, replacing samplers, and fitting
 end.time - start.time2 # post-compilation run time
@@ -128,7 +137,7 @@ plot(coda::mcmc(pnorm(mvSamples[-c(1:burnin),idx.bd])))
 mvSamples2 <- as.matrix(Cmcmc$mvSamples2)
 idx.R <- grep("R",colnames(mvSamples2))
 idx.w <- grep("w",colnames(mvSamples2))
-burnin2 <- 1000
+burnin2 <- 100
 
 #can look at R and w posteriors
 plot(coda::mcmc(mvSamples2[-c(1:burnin2),idx.R[-seq(1,S*S,S+1)]])) #removing diagonals that are all 1

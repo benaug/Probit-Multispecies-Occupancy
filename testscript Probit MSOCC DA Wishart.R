@@ -5,7 +5,7 @@ library(nimble)
 library(coda)
 source("NimbleModel Probit MSOCC DA Wishart.R")
 
-#Data dimensions (definitions below may be specific to eDNA interpretation)
+#Data dimensions
 S <- 10 #species
 J <- 500 #sites
 K <- rep(5,J) #detection occasions per site
