@@ -87,7 +87,7 @@ conf$removeSampler("w") #remove block RW sampler for w that mixes poorly
 tries <- 10 #how many block updates per j per iteration
 for(j in 1:J){
     conf$addSampler(target = paste0("w[1:", S,",",j,"]"), type = "RW_block",
-                    control = list(S=S,i=i,j=j,K=K[j],tries=tries))
+                    control = list(tries=tries))
 }
 
 #remove a samplers, replace with custom conjugate samplers that nimble didn't recognize
