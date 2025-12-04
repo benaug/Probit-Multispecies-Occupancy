@@ -1,31 +1,37 @@
 # Probit-Multispecies-Occupancy
 Probit Multispecies Occupancy models using the parameter expanded data augmentation approach of Dorazio et al. 2025
 
-This is a bare bones example of fitting probit multispecies occupancy models in Nimble largely following the approach proposed by 
-Dorazio et al. 2025. Like Dorazio, I am using the parameter expanded data augmentation (PXDA) through the Huang-Wand prior for the expanded precision matrix.
-I implemented Dorazio's w and z updates in Nimble (not in this repository) but I think the z full conditionals are wrong because they assume independence.
-Instead, I provide a version (V2) that uses Dorazio's w updates conditioned on the z states and then use a MH update for w's where the z states are not observed.
-I will improve on this later.
+This is a bare bones example of fitting probit multispecies occupancy models in Nimble using parameter expansion as proposed by 
+Dorazio et al. (2025). Dorazio et al. follows up on Tobler et al. (2019) who used the model without parameter expansion and found it can mix very
+poorly and have convergence problems, especially as the number of species and sites increase. Parameter expansion does really improve
+our ability to use this model reliably.
 
+Dorazio et al.:
 https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.70168
 
-This paper follows up on Tobler et al. (2019) who used the model without parameter expansion which can mix very poorly especially as the number of species increases:
-
+Tobler et al.:
 https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecy.2754
 
-I provide the Tobler et al. data augmentation version in files with "DA Wishart" and the Dorazio parameter expanded 
-data augmentation version in files with "PXDA HuangWand" since Dorazio used the Huang-Wand hierarchical prior for the 
-precision matrix. "PXDA HaungWand" implements PXDA with a block random walk for w which is an improvement over Tobler et al.,
-but w still does not mix well. "PXDA HaungWand V2" also includes Dorazio's full conditional w updates for observed z states
-and independent RW updates for z's that are latent to allow z states to change.
+Like Dorazio, I am using the parameter expanded data augmentation (PXDA) through the Huang-Wand prior for the expanded precision matrix.
+I implemented Dorazio's w and z full conditional updates in Nimble but the z full conditionals are wrong because they assume independence, 
+so I am not using that approach. Therefore, I don't include the z full conditionals in this repository. I include 3 approaches:
 
-Models are currently set up with occupancy and detection intercepts only. I will add them later, but be careful if you try to do this yourself.
+1. The Tobler et al. data augmentation version in files with "DA Wishart"
 
-I have PXDA set up with full conditional updates for B, but the custom conjugate update is only coded for the intercept only model.
-The mixing is better with the congujate update and they are faster to compute than RW. I noticed a case of one of the betas drifting
-off towards positive infinity using an RW update with a diffuse prior. This shouldn't happen with the conjugate update, or you can
-set bounds on the scale of the B prior that keep mean psi between, say, 0.001 and 0.999 (in code currently commented out).
+2. A parameter expanded data augmentation version using the Huang Wand prior that Dorazio uses. Here, I use the default block 
+RW updates for the multivariate normal for each site, but with 10 tries per iteration instead of 1 (you can modify this).
+Multiple tries really does improve mixing, but I am unsure what would be the optimal number of tries.
+These files have "PXDA HuangWand" in the file name.
 
-Finally, I haven't formally tested this code, but it appears to be working correctly. 
+3. A parameter expanded data augmentation version using the Huang Wand prior that Dorazio uses. Here, I propose the multivariate normals
+at each site from their full conditionals like Dorazio does, but condition on the current occupancy states. Then, I use a simple RW update for each multivariate
+normal indices separately that allows the occupancy states to change. One could also just retain the block RW updates.
 
-I haven't used Dorazio's code, but it can be found here: https://github.com/RobertDorazio/MultispeciesOccupancy/tree/main
+I've done a single simulation scenario and for both 2 and 3, the parameter estimates look good except for some rare cases of nonconvergence which
+is due to a ridge in the likelihood when the expected occupancy for a species approaches 1. I will try to improve this further by introducing
+constraints to prevent this from happening.
+
+Models are currently set up with occupancy and detection intercepts only. I will add them later, but be careful if you try to do this yourself,
+the full conditional updates for B will need to be modified or not used.
+
+Dorazio's code can be found here: https://github.com/RobertDorazio/MultispeciesOccupancy/tree/main

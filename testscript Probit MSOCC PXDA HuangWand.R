@@ -3,6 +3,7 @@
 library(mvtnorm)
 library(nimble)
 library(coda)
+library(truncnorm)
 source("NimbleModel Probit MSOCC PXDA HuangWand.R")
 
 #Data dimensions
@@ -44,14 +45,7 @@ for(i in 1:S){
 
 #initialize
 z.init <- 1*(y>0)
-w.init <- matrix(0, S, J)
-w.init[z.init==0] <- -abs(rnorm(sum(z.init==0),0,1))
-w.init[z.init==1] <- abs(rnorm(sum(z.init==1),0,1))
-
 #Following Dorazio using glm to set B inits. modify if you add covariates
-#if you don't provide decent B inits, they are drawn from prior, which is currently
-#very diffuse and can take a long time to converge
-
 B.init <- rep(NA,S)
 z.obs <- 1*(y>0)
 for(s in 1:S){
@@ -60,7 +54,32 @@ for(s in 1:S){
   B.init[s] = fit$coefficients
 }
 
-Niminits <- list(B=B.init,z=z.init,w=w.init)
+R.init <- diag(rep(1,S))
+D.init = diag(S)
+
+w.init <- matrix(0,S,J)
+for(i in 1:S){
+  for(j in 1:J) {
+    if(z.init[i,j]==1){
+      w.init[i,j] <- rtruncnorm(1,mean=B.init[i],sd=D.init[i,i],a=0)
+    }else{
+      w.init[i,j] <- rtruncnorm(1,mean=B.init[i],sd=D.init[i,i],b=0)
+    }
+  }                   
+}
+
+#more Dorazio initialization code
+Sigma.init <- D.init %*% R.init %*% D.init
+Omega.init <- chol2inv(chol(Sigma.init))
+Eps <- t(w.init - B.init)
+crossProdMat <- crossprod(Eps, Eps)
+nu.Sigma <- 2
+scale.Sigma <- 1
+a.init <- rgamma(S, shape=(nu.Sigma+S)/2, rate=(1/scale.Sigma^2) + nu.Sigma*diag(Omega.init))
+Omega.init <- rWishart(1, df=nu.Sigma+S-1 + J, Sigma=chol2inv(chol(2*nu.Sigma*diag(a.init) + crossProdMat)))[,, 1]
+Sigma.init <- chol2inv(chol(Omega.init))
+
+Niminits <- list(B=B.init,z=z.init,w=w.init,a=a.init,Omega=Omega.init)
 constants <- list(S=S,J=J,K=K)
 
 z.data <- z.init
@@ -81,13 +100,14 @@ Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FAL
 conf <- configureMCMC(Rmodel,monitors=parameters,thin=5,
                       monitors2=parameters2,thin2=5)
 
-#can remove block sampler for w and add it back with multiple tries
+#remove and replace w sampler with more than 1 try per iteration
+#suppressing warnings recommending Barker sampler (silent=TRUE below). 
+#Barker sampler doesn't work due to step() function that creates discontinuity in likelihood.
 conf$removeSampler("w") #remove block RW sampler for w that mixes poorly
-#independent w samplers that can switch z states for y[i,j]=0
 tries <- 10 #how many block updates per j per iteration
 for(j in 1:J){
     conf$addSampler(target = paste0("w[1:", S,",",j,"]"), type = "RW_block",
-                    control = list(tries=tries))
+                    control = list(tries=tries),silent=TRUE)
 }
 
 #remove a samplers, replace with custom conjugate samplers that nimble didn't recognize
@@ -114,14 +134,14 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 # Run the model.
 start.time2 <- Sys.time()
 #can ignore warnings about NAs in A
-Cmcmc$run(10000,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
+Cmcmc$run(2500,reset=FALSE) #short run for demonstration. can keep running this line to get more samples
 end.time <- Sys.time()
 end.time - start.time  # total time for compilation, replacing samplers, and fitting
 end.time - start.time2 # post-compilation run time
 
 mvSamples <- as.matrix(Cmcmc$mvSamples)
 
-burnin <- 1000
+burnin <- 100
 
 #plot derived betas, detection parameters
 plot(coda::mcmc(mvSamples[-c(1:burnin),])) #might take a while for all parameters to converge

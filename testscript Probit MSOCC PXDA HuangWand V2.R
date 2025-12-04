@@ -82,7 +82,7 @@ for(i in 1:S){
     }
   }                   
 }
-#more Dorazio initializatoion code
+#more Dorazio initialization code
 Sigma.init <- D.init %*% R.init %*% D.init
 Omega.init <- chol2inv(chol(Sigma.init))
 Eps <- t(w.init - B.init)
