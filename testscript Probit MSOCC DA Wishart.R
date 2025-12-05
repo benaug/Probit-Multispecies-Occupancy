@@ -6,8 +6,8 @@ library(coda)
 source("NimbleModel Probit MSOCC DA Wishart.R")
 
 #Data dimensions
-S <- 10 #species
-J <- 500 #sites
+S <- 5 #species
+J <- 250 #sites
 K <- rep(5,J) #detection occasions per site
 
 set.seed(1123)
