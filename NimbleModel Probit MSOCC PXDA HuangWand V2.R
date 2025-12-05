@@ -4,8 +4,6 @@ NimModel <- nimbleCode({
   for(i in 1:S){
     #for RW updates
     # B[i] ~ dnorm(0,sd=10) # expanded intercept. too diffuse, mean psi can get stuck at 0 or 1
-    #can use this with intercept only model to keep psi between approx 0.001 an 0.999 so it doesn't get stuck at 0 or 1
-    # B[i] ~ dunif(-3.1,3.1)
     #for conjugate updates (currenly only works for intercept only)
     B[i] ~ dflat() #assumption for B conjugate sampler
     beta0.derived[i] <- B[i]/sqrt(Sigma[i,i]) #identifiable intercept
