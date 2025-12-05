@@ -33,7 +33,7 @@ normal indices separately that allows the occupancy states to change. One could 
 These files have "PXDA HuangWand V2" in the file name.
 
 I've done a single simulation scenario and for both 2 and 3, the parameter estimates and HPD coverage look good except for some rare cases of nonconvergence which
-is due to a ridge in the likelihood when the expected occupancy for a species approaches 1. I will try to improve this further by introducing
+is due to the likelihood becoming flat when the expected occupancy for a species approaches 1. I will try to improve this further by introducing
 constraints to prevent this from happening. Also, version 1 is actually much more efficient than version 2, at least in the scenario I considered
 with 10 species and 250 sites. The truncated MVN full conditionals mix better per iteration, but are massively slower, resulting in a net loss of
 the effective sample size per unit time.
